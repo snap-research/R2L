@@ -13,7 +13,6 @@ model/*.th
 train_params/
 data/
 tiny_nerf_data.npz
-*.txt
 *.npy
 *.pdf
 *.pickle
