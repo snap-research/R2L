@@ -1,0 +1,16 @@
+expname = orchids_test
+basedir = ./logs
+datadir = ./data/nerf_llff_data/orchids
+dataset_type = llff
+
+factor = 8
+llffhold = 8
+
+N_rand = 1024
+N_samples = 64
+N_importance = 64
+
+use_viewdirs = False # @mst: in default, we do not need viewdirs as input
+raw_noise_std = 1e0
+
+no_batching = True # @mst: same as realistic synthetic dataset, we do not use batching here
