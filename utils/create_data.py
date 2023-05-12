@@ -821,7 +821,7 @@ def train():
             # @mst: note, here it MUST be 'pose[:3,:4]', using 'pose' will cause white rgb output.
 
             batch_rays = torch.stack([rays_o, rays_d], dim=0)
-            rgb, *_, ret_dict = render(H,
+            rgb, disp, *_, ret_dict = render(H,
                                        W,
                                        focal,
                                        chunk=args.chunk,
@@ -831,11 +831,19 @@ def train():
                                        **render_kwargs_)
             depth = ret_dict['depth_map']  # [H, W]
             depth = depth[..., None]  # [H, W, 1]
+            disp = disp[..., None]  # [H, W, 1]
+            if args.does_terminate:
+                disp[disp > 0] = 1
+            disp = torch.nan_to_num(disp, nan=0)
+            mask = (rgb[:, :, 0] > 0.9) & (rgb[:, :, 1] > 0.9) & (rgb[:, :, 2] > 0.9)
+
+            # replace values in tensor1 with new value (e.g. 0) where mask is True
+            disp[mask.unsqueeze(2).repeat(1, 1, 1)] = 0
             if args.learn_depth in ['surface']:
                 depth = rays_o + rays_d * depth.expand_as(rays_d)  # [H, W, 3]
             if args.learn_depth:
-                data_ = torch.cat([rays_o, rays_d, rgb, depth],
-                                  dim=-1)  # [H, W, 10] or [H, W, 12]
+                data_ = torch.cat([rays_o, rays_d, disp],
+                                  dim=-1)  # [H, W, 7]
             else:
                 data_ = torch.cat([rays_o, rays_d, rgb], dim=-1)  # [H, W, 9]
             data += [data_.view(rays_o.shape[0] * rays_o.shape[1], -1)]
@@ -847,8 +855,12 @@ def train():
             # check pseudo images
             if i <= 5:
                 filename = f'{datadir_kd_new}/pseudo_sample_{i}.png'
-                imageio.imwrite(filename, to8b(rgb))
-                print(rgb.abs().mean())
+                if args.save_depth:
+                    imageio.imwrite(filename, to8b(disp))
+                    print(disp.abs().mean())
+                else:
+                    imageio.imwrite(filename, to8b(rgb))
+                    print(rgb.abs().mean())
 
             # save to avoid out of memory
             if i % i_save == 0:

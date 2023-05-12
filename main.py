@@ -1323,6 +1323,7 @@ def train():
                         target_s = target_s.view(-1, 3)  # [N_rand*4096, 3]
 
             batch_size = rays_o.shape[0]
+            print(f"Batch size: {batch_size}")
             if args.hard_ratio:
                 if isinstance(args.hard_ratio, list):
                     n_hard_in = int(

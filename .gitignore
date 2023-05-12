@@ -21,3 +21,5 @@ tools/.ipynb_checkpoints
 log_learning_curve_test.jpg
 *.DS_Store*
 .vscode
+NeRF_Blender_Models/
+R2L_Blender_Models/
