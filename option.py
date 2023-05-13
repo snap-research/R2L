@@ -199,7 +199,7 @@ parser.add_argument("--i_weights",
                     help='frequency of weight ckpt saving')
 parser.add_argument("--i_testset",
                     type=int,
-                    default=100,
+                    default=1000,
                     help='frequency of testset saving')
 parser.add_argument("--i_video",
                     type=int,
@@ -210,7 +210,7 @@ parser.add_argument("--i_video",
 parser.add_argument('--model_name',
                     type=str,
                     default='R2L',
-                    choices=['nerf', 'nerf_v3.2', 'R2L'])
+                    choices=['nerf', 'nerf_v3.2', 'R2L', 'SilhouetteNeRF'])
 parser.add_argument('--N_iters', type=int, default=200000)
 parser.add_argument('--skips', type=str, default='4')
 parser.add_argument('--D_head', type=int, default=4)
@@ -325,6 +325,7 @@ parser.add_argument('--learn_depth',
                     choices=['depth', 'surface'])
 parser.add_argument('--save_depth',action='store_true')
 parser.add_argument('--does_terminate',action='store_true')
+parser.add_argument('--train_depth',action='store_true')
 parser.add_argument('--lw_depth', type=float, default=0.1)
 parser.add_argument('--save_intermediate_models', action='store_true')
 parser.add_argument('--plucker', action='store_true')

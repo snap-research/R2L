@@ -32,7 +32,8 @@ def load_blender_data(basedir,
                       half_res=False,
                       testskip=1,
                       n_pose=40,
-                      perturb=False):
+                      perturb=False,
+                      depth=False):
     splits = ['train', 'val', 'test']
     metas = {}
     for s in splits:
@@ -54,7 +55,10 @@ def load_blender_data(basedir,
 
         for frame in meta['frames'][::skip]:
             # print(frame.keys()) # frame keys: file_path, rotation, transform_matrix
-            fname = os.path.join(basedir, frame['file_path'] + '.png')
+            if depth and s=='test':
+                fname = os.path.join(basedir, frame['file_path'] + '_depth_0001.png')
+            else:
+                fname = os.path.join(basedir, frame['file_path'] + '.png')
             imgs.append(imageio.imread(fname))
             poses.append(np.array(frame['transform_matrix']))
         imgs = (np.array(imgs) / 255.).astype(
