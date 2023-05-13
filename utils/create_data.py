@@ -835,13 +835,13 @@ def train():
             if args.does_terminate:
                 disp[disp > 0] = 1
             disp = torch.nan_to_num(disp, nan=0)
-            mask = (rgb[:, :, 0] > 0.9) & (rgb[:, :, 1] > 0.9) & (rgb[:, :, 2] > 0.9)
+            mask = (rgb[:, :, 0] > 0.85) & (rgb[:, :, 1] > 0.85) & (rgb[:, :, 2] > 0.85)
 
-            # replace values in tensor1 with new value (e.g. 0) where mask is True
+            # replace values in disp with 0 where mask is True
             disp[mask.unsqueeze(2).repeat(1, 1, 1)] = 0
             if args.learn_depth in ['surface']:
                 depth = rays_o + rays_d * depth.expand_as(rays_d)  # [H, W, 3]
-            if args.learn_depth:
+            if args.save_depth:
                 data_ = torch.cat([rays_o, rays_d, disp],
                                   dim=-1)  # [H, W, 7]
             else:
