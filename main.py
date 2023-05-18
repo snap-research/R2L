@@ -1038,6 +1038,9 @@ def train():
     # Get train, test, video poses and images
     train_images, train_poses = images[i_train], poses[i_train]
     test_poses, test_images = poses[i_test], images[i_test]
+    if args.train_depth:
+        test_images[test_images == 1] = 0
+        test_images[test_images != 0] = 1
     n_original_img = len(train_images)
     if args.dataset_type == 'blender':
         # @mst: for blender dataset, get more diverse video poses
