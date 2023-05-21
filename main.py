@@ -329,6 +329,7 @@ def render_path(render_poses,
                 print(H_, W_)
 
                 if args.train_depth:
+                    rgb *= 2
                     rgb = rgb.view(H_, W_, 1)
                     rgb = rgb.expand(H_, W_, 3)
                 else:
@@ -1148,7 +1149,7 @@ def train():
         else:
             onnx_path = f'{logger.weights_path}/ckpt.onnx'
         mobile_H, mobile_W = 256, 256
-        if args.model_name in ['nerf_v3.2', 'R2L']:
+        if args.model_name in ['nerf_v3.2', 'R2L', 'SilhouetteNeRF']:
             dummy_input = torch.randn(
                 1, mobile_H, mobile_W,
                 render_kwargs_test['network_fn'].input_dim).to(device)
@@ -1616,7 +1617,7 @@ def save_ckpt(file_name, render_kwargs_train, optimizer, best_psnr,
     if args.model_name in ['nerf'] and args.N_importance > 0:
         to_save['network_fine_state_dict'] = undataparallel(
             render_kwargs_train['network_fine'].state_dict())
-    if args.model_name in ['nerf_v3.2', 'R2L']:
+    if args.model_name in ['nerf_v3.2', 'R2L', 'SilhouetteNeRF']:
         to_save['network_fn'] = undataparallel(
             render_kwargs_train['network_fn'])
     torch.save(to_save, path)
