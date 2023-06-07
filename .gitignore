@@ -12,6 +12,7 @@ base_models
 model/*.th
 train_params/
 data/
+Results/
 tiny_nerf_data.npz
 *.npy
 *.pdf
