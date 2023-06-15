@@ -101,7 +101,7 @@ class PointSampler():
                 3)  # [H*W, 3] # TODO-@mst: improve this non-intuitive impl.
         rays_o = c2w[:3, -1].expand(rays_d.shape)  # [H*W, 3]
         # If the camera position is outside of the bounding sphere, reproject the ray origins
-        # Ray-sphere intersection reference: 
+        # Ray-sphere intersection reference: http://kylehalladay.com/blog/tutorial/math/2013/12/24/Ray-Sphere-Intersection.html
         if torch.max(distance) > sphere_radius + THRESHOLD:
             # Calculate the direction vector normalized for all rays
             rays_d_normalized = rays_d / torch.norm(rays_d, dim=1, keepdim=True)
