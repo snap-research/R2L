@@ -9,7 +9,6 @@ linestyles = ['-r', '--', '-.', ':']
 
 def extract_values(log_files, keyword):
     values = []
-    names = []
 
     for log_file in log_files:
         with open(log_file, 'r') as file:
@@ -17,11 +16,10 @@ def extract_values(log_files, keyword):
             matches = re.findall(f'{keyword} (\d+.\d+)', contents)
             floats = [float(x) for x in matches]
 
-            names.extend(re.findall('_\d+_\d+_', log_file))
             if matches:
                 values.append(floats)
 
-    return values, names
+    return values
 
 
 def exponential_function(x, a, b, c):
@@ -33,16 +31,12 @@ def fit_curve(x, y):
     return popt
 
 def create_plot(x, y, i, name):
-    xdata = np.arange(100, (len(y) + 1) * 100, 100)
-    xnew = np.linspace(min(xdata), max(xdata), len(xdata) * 10)
-    labels = name[1:-1].split('_')
-    label = labels[0] + " width, " + labels[1] + " depth"
-    yhat = savgol_filter(y, 51, 3)
-    plt.plot(xdata, yhat, linestyles[i], label=label)
+    label = name
+    plt.plot(x, y, linestyles[i], label=label)
 
     plt.xlabel('Iterations')
     plt.ylabel('PSNR')
-    plt.title('Ablation Study of PSNR')
+    # plt.title('Ablation Study of PSNR')
     plt.legend()
 
 def main():
@@ -52,11 +46,21 @@ def main():
 
     args = parser.parse_args()
 
-    values, names = extract_values(args.log_files, args.keyword)
-    if values:
-        for i, v in enumerate(values):
-            x = np.arange(1, len(v) + 1)
-            create_plot(x, v, i, names[i])
+    train_values = extract_values(args.log_files, args.keyword)
+    test_values = extract_values(args.log_files, ' TestPSNR')
+    train_names = ["128W88D train", "128W44D train", "88W44D train", "64W32D train"]
+    test_names = ["128W88D test", "128W44D test", "88W44D test", "64W32D test"]
+    if train_values:
+        for i, v in enumerate(train_values):
+            print(max(v))
+            xdata = np.arange(100, (len(v) + 1) * 100, 100)
+            yhat = savgol_filter(v, 51, 3)
+            create_plot(xdata, yhat, i, train_names[i])
+        for i, v in enumerate(test_values):
+            print(max(v))
+            xdata = np.arange(1000, (len(v) + 1) * 1000, 1000)
+            yhat = savgol_filter(v, 51, 3)
+            create_plot(xdata, yhat, i, test_names[i])
         plt.show()
     else:
         print('No values found.')

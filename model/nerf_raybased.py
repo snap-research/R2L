@@ -5,8 +5,9 @@ torch.autograd.set_detect_anomaly(True)
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np, time, math
-import pdb
 
+THRESHOLD = 0.1
+sphere_radius = 4
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Misc
@@ -92,11 +93,31 @@ class PointSampler():
             H * W, n_sample)  # [H*W, n_sample]
 
     def sample_test(self, c2w):  # c2w: [3, 4]
+        origin = c2w[:3, -1]
+        distance = torch.sqrt(origin[0] ** 2 + origin[1] ** 2 + origin[2] ** 2)
         rays_d = torch.sum(
             self.dirs.unsqueeze(dim=-2) * c2w[:3, :3], dim=-1).view(
                 -1,
                 3)  # [H*W, 3] # TODO-@mst: improve this non-intuitive impl.
         rays_o = c2w[:3, -1].expand(rays_d.shape)  # [H*W, 3]
+        # If the camera position is outside of the bounding sphere, reproject the ray origins
+        # Ray-sphere intersection reference: 
+        if torch.max(distance) > sphere_radius + THRESHOLD:
+            # Calculate the direction vector normalized for all rays
+            rays_d_normalized = rays_d / torch.norm(rays_d, dim=1, keepdim=True)
+            center = torch.tensor([0, 0, 0], dtype=torch.float32).to("cuda:0")
+            vec_to_center = torch.sub(center, origin)
+            L_sqrd = torch.dot(vec_to_center, vec_to_center)
+            # torch.sum is used to calculate the element-wise dot product
+            tc = torch.sum(vec_to_center * rays_d_normalized, dim=1)
+            d = torch.sqrt(L_sqrd - torch.pow(tc, 2))
+            th = torch.sqrt(sphere_radius ** 2 - torch.pow(d, 2))
+            t = tc - th
+
+            intersection_points = rays_o + t.unsqueeze(1) * rays_d_normalized
+            rays_o = intersection_points
+
+        # Sample points along ray
         pts = rays_o[..., None, :] + rays_d[..., None, :] * self.z_vals_test[
             ..., :, None]  # [H*W, n_sample, 3]
         return pts.view(pts.shape[0], -1)  # [H*W, n_sample*3]
