@@ -17,7 +17,8 @@ import numpy as np
 from OpenGL import *
 from OpenGL.GL import *
 from OpenGL.GLU import *
-
+from PIL import Image
+from PIL import ImageOps
 #import pygame..
 import pygame
 import json
@@ -218,7 +219,7 @@ def main():
     i = 0
     pose = poses[i]
     prev_epoch = time.time()
-    cameraPosition = (0, 12, -18)
+    cameraPosition = (5, 10, -10)
     # Load shadow map
     shadow_map_data = read_shadow_map(f"shadows/00{i}.png")
     # shadow Map
@@ -245,7 +246,7 @@ def main():
             lightPosition = [pose[0][3], pose[2][3], -pose[1][3]]
 
         # just to animate things..
-        cameraPosition = (sin(incrObjRotY*.01)*amply,20.0,cos(incrObjRotY*.01)*amply)
+        # cameraPosition = (sin(incrObjRotY*.01)*amply,20.0,cos(incrObjRotY*.01)*amply)
         # lightPosition = (1, 20, 1)
         if not pause:
             incrObjRotY += INCR
@@ -257,6 +258,7 @@ def main():
         # press 'p' to pause anims..
         if event.type == KEYUP and event.key == K_p:
             pause = not pause
+
 
         # render obj(s) casting shadows
         textureMatrix = CreateShadowBefore(position=lightPosition)
@@ -275,14 +277,21 @@ def main():
 
         # render obj(s) where shadows cast
         RenderShadowCompareBefore(textureMapID, textureMatrix)
-        #renderObj(objID,incrObjRotY)
+        # renderObj(obj.gl_list,incrObjRotY)
         renderFloor(floorID)
         RenderShadowCompareAfter()
 
         # flip
         pygame.display.flip()
-        
 
-#starts demo..        
+        if event.type == KEYUP and event.key == K_s:
+            glPixelStorei(GL_PACK_ALIGNMENT, 1)
+            data = glReadPixels(0, 0, window_x, window_y, GL_RGBA, GL_UNSIGNED_BYTE)
+            image = Image.frombytes("RGBA", (int(window_x), int(window_y)), data)
+            image = ImageOps.flip(image)  # in my case image is flipped top-bottom for some reason
+            image.save('render.png', 'PNG')
+
+
+#starts demo..
 if __name__ == "__main__":
     main()
