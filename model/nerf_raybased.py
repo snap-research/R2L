@@ -100,6 +100,7 @@ class PointSampler():
                 -1,
                 3)  # [H*W, 3] # TODO-@mst: improve this non-intuitive impl.
         rays_o = c2w[:3, -1].expand(rays_d.shape)  # [H*W, 3]
+        offsets = torch.zeros(rays_d.shape)
         # If the camera position is outside of the bounding sphere, reproject the ray origins
         # Ray-sphere intersection reference: http://kylehalladay.com/blog/tutorial/math/2013/12/24/Ray-Sphere-Intersection.html
         if torch.max(distance) > sphere_radius + THRESHOLD:
@@ -115,12 +116,13 @@ class PointSampler():
             t = tc - th
 
             intersection_points = rays_o + t.unsqueeze(1) * rays_d_normalized
+            offsets = (rays_o - intersection_points).pow(2).sum(1).sqrt()
             rays_o = intersection_points
 
         # Sample points along ray
         pts = rays_o[..., None, :] + rays_d[..., None, :] * self.z_vals_test[
             ..., :, None]  # [H*W, n_sample, 3]
-        return pts.view(pts.shape[0], -1)  # [H*W, n_sample*3]
+        return pts.view(pts.shape[0], -1), offsets  # [H*W, n_sample*3]
 
     def sample_test2(self, c2w):  # c2w: [3, 4]
         rays_d = torch.sum(

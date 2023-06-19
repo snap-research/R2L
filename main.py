@@ -287,6 +287,7 @@ def render_path(render_poses,
             else:  # For R2L model
                 model = render_kwargs['network_fn']
                 perturb = render_kwargs['perturb']
+                offsets = torch.zeros((H * W, 1))
 
                 # Network forward
                 with torch.no_grad():
@@ -299,7 +300,7 @@ def render_path(render_poses,
                             pts = point_sampler.sample_test_plucker(
                                 c2w[:3, :4])
                         else:
-                            pts = point_sampler.sample_test(
+                            pts, offsets = point_sampler.sample_test(
                                 c2w[:3, :4])  # [H*W, n_sample*3]
                     model_input = positional_embedder(pts)
                     torch.cuda.synchronize()
@@ -329,8 +330,10 @@ def render_path(render_poses,
                 print(H_, W_)
 
                 if args.train_depth:
-                    rgb *= 2
                     rgb = rgb.view(H_, W_, 1)
+                    offsets = offsets.view(H_, W_, 1).to("cuda:0")
+                    rgb = 1/(1/rgb + offsets)
+                    rgb *= 2
                     rgb = rgb.expand(H_, W_, 3)
                 else:
                     rgb = rgb.view(H_, W_, 3)
