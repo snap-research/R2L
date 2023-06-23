@@ -210,7 +210,7 @@ parser.add_argument("--i_video",
 parser.add_argument('--model_name',
                     type=str,
                     default='R2L',
-                    choices=['nerf', 'nerf_v3.2', 'R2L', 'SilhouetteNeRF'])
+                    choices=['nerf', 'nerf_v3.2', 'R2L', 'DeLFT'])
 parser.add_argument('--N_iters', type=int, default=200000)
 parser.add_argument('--skips', type=str, default='4')
 parser.add_argument('--D_head', type=int, default=4)

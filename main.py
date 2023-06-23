@@ -476,7 +476,7 @@ def create_nerf(args, near, far):
         if not args.freeze_pretrained:
             grad_vars += list(model.parameters())
 
-    elif args.model_name in ['SilhouetteNeRF']:
+    elif args.model_name in ['DeLFT']:
         input_dim = args.n_sample_per_ray * 3 * positional_embedder.embed_dim
         model = NeRF_v3_2(args, input_dim, 1).to(device)
         if not args.freeze_pretrained:
@@ -564,7 +564,7 @@ def create_nerf(args, near, far):
         n_flops = get_n_flops_(model, input=dummy_input, count_adds=False) * (
             args.N_samples + args.N_samples + args.N_importance)
 
-    elif args.model_name in ['nerf_v3.2', 'R2L', 'SilhouetteNeRF']:
+    elif args.model_name in ['nerf_v3.2', 'R2L', 'DeLFT']:
         dummy_input = torch.randn(1, model.input_dim).to(device)
         n_flops = get_n_flops_(model, input=dummy_input, count_adds=False)
 
@@ -814,7 +814,7 @@ def get_dataloader(dataset_type, datadir, pseudo_ratio=0.5):
                 pin_memory=True,
                 sampler=InfiniteSamplerWrapper(len(trainset)))
         elif args.data_mode in ['rays']:
-            if args.model_name in ['SilhouetteNeRF']:
+            if args.model_name in ['DeLFT']:
                 trainset = BlenderDataset_v2(
                     datadir,
                     dim_dir=3,
@@ -1152,7 +1152,7 @@ def train():
         else:
             onnx_path = f'{logger.weights_path}/ckpt.onnx'
         mobile_H, mobile_W = 256, 256
-        if args.model_name in ['nerf_v3.2', 'R2L', 'SilhouetteNeRF']:
+        if args.model_name in ['nerf_v3.2', 'R2L', 'DeLFT']:
             dummy_input = torch.randn(
                 1, mobile_H, mobile_W,
                 render_kwargs_test['network_fn'].input_dim).to(device)
@@ -1427,7 +1427,7 @@ def train():
                                                  rays_d,
                                                  perturb=perturb)
             rgb = model(positional_embedder(pts))
-        elif args.model_name in ['SilhouetteNeRF']:
+        elif args.model_name in ['DeLFT']:
             model = render_kwargs_train['network_fn']
             perturb = render_kwargs_train['perturb']
             if args.plucker:
@@ -1620,7 +1620,7 @@ def save_ckpt(file_name, render_kwargs_train, optimizer, best_psnr,
     if args.model_name in ['nerf'] and args.N_importance > 0:
         to_save['network_fine_state_dict'] = undataparallel(
             render_kwargs_train['network_fine'].state_dict())
-    if args.model_name in ['nerf_v3.2', 'R2L', 'SilhouetteNeRF']:
+    if args.model_name in ['nerf_v3.2', 'R2L', 'DeLFT']:
         to_save['network_fn'] = undataparallel(
             render_kwargs_train['network_fn'])
     torch.save(to_save, path)
