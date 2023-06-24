@@ -5,7 +5,7 @@
 > **[Depth Light Field Training (DeLFT)](https://mihneatoader.github.io/Depth-Light-Field-Training)** \
 > [Mihnea Toader](http://mihneatoader.github.io/)<sup>1</sup> \
 > Supervisors: Elmar Eisemann<sup>1</sup>, Petr Kellnhofer<sup>1</sup>, Michael Weinmann<sup>1</sup>\
-> <sup>1</sup> EEMCS, Delft University of Technology, The Netherlands \
+> <sup>1</sup> EEMCS, Delft University of Technology, The Netherlands
 
 **Description:** We present DeLFT, a neural model that tackles the issue of shadow generation by using a deep residual MLP network with fast evaluation times, that generates view-dependent shadow maps. The network distills the knowledge of an existing NeRF model and achieves the speedup through the use of neural light fields, by only doing one network forward per ray.
 
@@ -47,8 +47,7 @@ sh scripts/download_DeLFT_models.sh
 ```bash
 CUDA_VISIBLE_DEVICES=0 python main.py --model_name DeLFT --config configs/lego_noview.txt --n_sample_per_ray 16 --netwidth 128 --netdepth 44 --use_residual --cache_ignore data --trial.ON --trial.body_arch resmlp --pretrained_ckpt DeLFT_Blender_Models/lego.tar --render_only --render_test --testskip 1 --screen --train_depth --project Test__DeLFT_W128D44__blender_lego
 ```  
-If out of memory errors are being thrown, add `--chunk 10000 --netchunk 20000` and change the values until running properly.
- 
+
 ### 4. Train DeLFT models
 
 #### Step 1. 
@@ -64,31 +63,36 @@ CUDA_VISIBLE_DEVICES=0 python utils/create_data.py --create_data rand --config c
 ```
 Again, if OOM errors are being thrown, change the `--chunk` and `--netchunk` arguments.
 
-Otherwise, download our already generated 1k set:
+Otherwise, download our already generated 500 pose set:
 ```bash
-sh scripts/download_lego_depth1k.sh
+sh scripts/download_lego_depth500.sh
 ```
-The data will be extracted under `data/nerf_synthetic/lego_depth_1k`.
+The data will be extracted under `data/nerf_synthetic/lego_depth500`.
 
 #### Step 3.
 Train DeLFT model on the synthetic depth data:
 ```bash
 CUDA_VISIBLE_DEVICES=0 python main.py --model_name DeLFT --config configs/lego_noview.txt --n_sample_per_ray 16 --netwidth 128 --netdepth 44 --datadir_kd data/nerf_synthetic/lego_depth1k --n_pose_video 20,1,1 --N_iters 100000 --N_rand 6 --data_mode rays --hard_ratio 0.2 --hard_mul 20 --use_residual --trial.ON --trial.body_arch resmlp --num_worker 8 --warmup_lr 0.0001,200 --cache_ignore data,__pycache__,torchsearchsorted,imgs --screen --project DeLFT__blender_lego --train_depth --i_testset 1000
 ```
+If using the downloaded 500 pose dataset, change the `--datadir_kd` argument to its location.
 If OOM errors are being thrown, change the `--N_rand` argument.
-
-If you are using the downloaded `lego_depth_1k` data, change the `datadir_kd` option to the location of the folder
 
 ## Other scenes
 If you wish to train other scenes, download the scene data from [here](https://drive.google.com/drive/folders/128yBriW1IG_3NJ5Rp7APSTZsJqdJdfc1) and place the data in either `data/nerf_llff_data` or `data/nerf_synthetic`. 
 Corresponding synthetic NeRF teacher checkpoints should be available under the `NeRF_Blender_Models` directory.
 For LLFF scenes, download the NeRF teacher checkpoints from [here](https://drive.google.com/drive/folders/1jIr8dkvefrQmv737fFm2isiT6tqpbTbv).
 
+## Shadow demo
+To run the integrated shadow demo, refer to [this](demo/README.md).
+
 ## Results
 See more results and videos on our [webpage](https://mihneatoader.github.io/Depth-Light-Field-Training).
 <div align="center">
-    <a><img src="figs/blender_psnr_comparison.png"  width="700" ></a><br>
-    <a><img src="figs/blender_visual_comparison.png"  width="700"></a>
+    <a><img src="figs/demo_render_close.png"  width="800" ></a><br>
+    <a><img src="figs/lego.png"  width="200"></a>
+    <a><img src="figs/chair_delft.png"  width="200"></a>
+    <a><img src="figs/fern.png"  width="200"></a>
+    <a><img src="figs/horns.png"  width="200"></a>
 </div>
 
 

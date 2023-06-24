@@ -10,6 +10,7 @@ double click on demoShadows.py
 """
 
 #import openGL
+import sys
 import time
 
 import imageio
@@ -213,7 +214,8 @@ def main():
 
     # lists
     floorID = listFromFile('./floor.msh')
-    obj = OBJ('cube.obj')
+
+    obj = OBJ(sys.argv[1])
     print("Object loading done")
 
     i = 0
