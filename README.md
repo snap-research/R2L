@@ -1,6 +1,6 @@
 # Depth Light Field Training (DeLFT)
 
-### [Project](https://mihneatoader.github.io/Depth-Light-Field-Training) | [Paper](https://github.com/MihneaToader/Depth-Light-Field-Training)
+### [Project](https://mihneatoader.github.io/Depth-Light-Field-Training) | [Paper](https://pure.tudelft.nl/admin/files/154393479/Final_Paper_Mihnea_Toader.pdf)
 
 > **[Depth Light Field Training (DeLFT)](https://mihneatoader.github.io/Depth-Light-Field-Training)** \
 > [Mihnea Toader](http://mihneatoader.github.io/)<sup>1</sup> \
@@ -45,7 +45,7 @@ sh scripts/download_DeLFT_models.sh
 
 - Run
 ```bash
-CUDA_VISIBLE_DEVICES=0 python main.py --model_name DeLFT --config configs/lego_noview.txt --n_sample_per_ray 16 --netwidth 128 --netdepth 44 --use_residual --cache_ignore data --trial.ON --trial.body_arch resmlp --pretrained_ckpt DeLFT_Blender_Models/lego.tar --render_only --render_test --testskip 1 --screen --train_depth --project Test__DeLFT_W128D44__blender_lego
+CUDA_VISIBLE_DEVICES=0 python main.py --model_name DeLFT --config configs/lego_noview.txt --n_sample_per_ray 16 --netwidth 128 --netdepth 44 --use_residual --cache_ignore data --trial.ON --trial.body_arch resmlp --pretrained_ckpt DeLFT_Blender_Models/lego.tar --render_only --render_test --scaling_factor 2 --testskip 1 --screen --train_depth --project Test__DeLFT_W128D44__blender_lego
 ```  
 
 ### 4. Train DeLFT models
@@ -72,7 +72,7 @@ The data will be extracted under `data/nerf_synthetic/lego_depth500`.
 #### Step 3.
 Train DeLFT model on the synthetic depth data:
 ```bash
-CUDA_VISIBLE_DEVICES=0 python main.py --model_name DeLFT --config configs/lego_noview.txt --n_sample_per_ray 16 --netwidth 128 --netdepth 44 --datadir_kd data/nerf_synthetic/lego_depth1k --n_pose_video 20,1,1 --N_iters 100000 --N_rand 6 --data_mode rays --hard_ratio 0.2 --hard_mul 20 --use_residual --trial.ON --trial.body_arch resmlp --num_worker 8 --warmup_lr 0.0001,200 --cache_ignore data,__pycache__,torchsearchsorted,imgs --screen --project DeLFT__blender_lego --train_depth --i_testset 1000
+CUDA_VISIBLE_DEVICES=0 python main.py --model_name DeLFT --config configs/lego_noview.txt --n_sample_per_ray 16 --netwidth 128 --netdepth 44 --datadir_kd data/nerf_synthetic/lego_depth1k --n_pose_video 20,1,1 --N_iters 100000 --N_rand 6 --data_mode rays --hard_ratio 0.2 --hard_mul 20 --use_residual --trial.ON --trial.body_arch resmlp --num_worker 8 --scaling_factor 2 --warmup_lr 0.0001,200 --cache_ignore data,__pycache__,torchsearchsorted,imgs --screen --project DeLFT__blender_lego --train_depth --i_testset 1000
 ```
 If using the downloaded 500 pose dataset, change the `--datadir_kd` argument to its location.
 If OOM errors are being thrown, change the `--N_rand` argument.

@@ -121,6 +121,13 @@ parser.add_argument(
     help=
     'downsampling factor to speed up rendering, set 4 or 8 for fast preview')
 
+parser.add_argument(
+    "--scaling_factor",
+    type=float,
+    default=1,
+    help=
+    'factor to scale disparity outputs, set 1 for true disparity')
+
 # training options
 parser.add_argument("--precrop_iters",
                     type=int,

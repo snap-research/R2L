@@ -100,7 +100,7 @@ class PointSampler():
                 -1,
                 3)  # [H*W, 3] # TODO-@mst: improve this non-intuitive impl.
         rays_o = c2w[:3, -1].expand(rays_d.shape)  # [H*W, 3]
-        offsets = torch.zeros(rays_d.shape)
+        offsets = torch.zeros((list(rays_d.shape)[0], 1))
         # If the camera position is outside of the bounding sphere, reproject the ray origins
         # Ray-sphere intersection reference: http://kylehalladay.com/blog/tutorial/math/2013/12/24/Ray-Sphere-Intersection.html
         if torch.max(distance) > sphere_radius + THRESHOLD:
@@ -555,7 +555,7 @@ class NeRF_v3_2(nn.Module):
 
         # tail
         self.tail = nn.Linear(
-            input_dim, output_dim) if args.linear_tail else nn.Sequential(
+            W, output_dim) if args.linear_tail else nn.Sequential(
                 *[nn.Linear(Ws[D - 2], output_dim),
                   nn.Sigmoid()])
 

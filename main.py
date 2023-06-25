@@ -309,7 +309,7 @@ def render_path(render_poses,
                         rgbd = model(model_input)
                         rgb = rgbd[:, :3]
                     else:
-                        rgb = model(model_input)
+                         rgb = model(model_input)
                     torch.cuda.synchronize()
                     t_forward = time.time()
                     print(
@@ -333,7 +333,7 @@ def render_path(render_poses,
                     rgb = rgb.view(H_, W_, 1)
                     offsets = offsets.view(H_, W_, 1).to("cuda:0")
                     rgb = 1/(1/rgb + offsets)
-                    rgb *= 2
+                    rgb *= args.scaling_factor
                     rgb = rgb.expand(H_, W_, 3)
                 else:
                     rgb = rgb.view(H_, W_, 3)
@@ -390,8 +390,8 @@ def render_path(render_poses,
         monitor_resolution_x = 3840
         pixels_per_degree = monitor_distance * (monitor_resolution_x /
                                                 monitor_width) * (np.pi / 180)
-        flips = flip.compute_flip(rec, ref,
-                                  pixels_per_degree)  # shape [N, 1, H, W]
+        # flips = flip.compute_flip(rec, ref,
+        #                           pixels_per_degree)  # shape [N, 1, H, W]
         # --
 
         errors = torch.stack(errors, dim=0)
@@ -405,7 +405,7 @@ def render_path(render_poses,
         misc['test_psnr_v2'] = psnrs.mean()
         misc['test_ssim'] = ssims.mean()
         misc['test_lpips'] = lpipses.mean()
-        misc['test_flip'] = flips.mean()
+        # misc['test_flip'] = flips.mean()
         misc['errors'] = errors
 
     render_kwargs['network_fn'].train()
@@ -1120,7 +1120,7 @@ def train():
                                              savedir=logger.gen_img_path,
                                              render_factor=args.render_factor)
                 print(
-                    f"[TEST] TestPSNR {misc['test_psnr'].item():.4f} TestPSNRv2 {misc['test_psnr_v2'].item():.4f} TestSSIM {misc['test_ssim'].item():.4f} TestLPIPS {misc['test_lpips'].item():.4f} TestFLIP {misc['test_flip'].item():.4f}"
+                    f"[TEST] TestMSE {misc['test_loss'].item():.4f} TestPSNR {misc['test_psnr'].item():.4f} TestPSNRv2 {misc['test_psnr_v2'].item():.4f} TestSSIM {misc['test_ssim'].item():.4f} TestLPIPS {misc['test_lpips'].item():.4f}"
                 )
             else:
                 if args.dataset_type == 'blender':
