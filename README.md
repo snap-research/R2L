@@ -48,7 +48,7 @@ sh scripts/download_R2L_models.sh
 
 - Run
 ```bash
-CUDA_VISIBLE_DEVICES=0 python main.py --model_name R2L --config configs/lego_noview.txt --n_sample_per_ray 16 --netwidth 256 --netdepth 88 --use_residual --cache_ignore data --trial.ON --trial.body_arch resmlp --pretrained_ckpt R2L_Blender_Models/lego.tar --render_only --render_test --testskip 1 --screen --project Test__R2L_W256D88__blender_lego
+CUDA_VISIBLE_DEVICES=0 python main.py --model_name R2L --config configs/lego_noview.txt --n_sample_per_ray 16 --netwidth 256 --netdepth 88 --use_residual --trial.ON --trial.body_arch resmlp --pretrained_ckpt R2L_Blender_Models/lego.tar --render_only --render_test --testskip 1 --experiment_name Test__R2L_W256D88__blender_lego
 ```  
  
 ### 4. Train R2L models
@@ -59,7 +59,7 @@ The detailed step-by-step training pipeline is as follows.
 #### Step 1. 
 Train a NeRF model:
 ```bash
-CUDA_VISIBLE_DEVICES=0 python main.py --model_name nerf --config configs/lego.txt --screen --cache_ignore data,__pycache__,torchsearchsorted,imgs --project NeRF__blender_lego
+CUDA_VISIBLE_DEVICES=0 python main.py --model_name nerf --config configs/lego.txt --experiment_name NeRF__blender_lego
 ```
 
 You can also download the teachers we trained to continue first:
@@ -69,19 +69,19 @@ sh scripts/download_NeRF_models.sh
 
 To test the download teachers, you can use
 ```bash
-CUDA_VISIBLE_DEVICES=0 python main.py --model_name nerf --config configs/lego.txt --pretrained_ckpt NeRF_Blender_Models/lego.tar --render_only --render_test --testskip 1 --screen --project Test__NeRF__blender_lego
+CUDA_VISIBLE_DEVICES=0 python main.py --model_name nerf --config configs/lego.txt --pretrained_ckpt NeRF_Blender_Models/lego.tar --render_only --render_test --testskip 1 --experiment_name Test__NeRF__blender_lego
 ```
 
 
 #### Step 2. 
 Use the pretrained NeRF model to generate synthetic data (saved in `.npy` format):
 ```bash
-CUDA_VISIBLE_DEVICES=0 python utils/create_data.py --create_data rand --config configs/lego.txt --teacher_ckpt Experiments/NeRF__blender_lego*/weights/200000.tar --n_pose_kd 10000 --datadir_kd data/nerf_synthetic/lego:data/nerf_synthetic/lego_pseudo_images10k --screen --cache_ignore data,__pycache__,torchsearchsorted,imgs --project NeRF__blender_lego__create_pseudo
+CUDA_VISIBLE_DEVICES=0 python utils/create_data.py --create_data rand --config configs/lego.txt --teacher_ckpt Experiments/NeRF__blender_lego*/weights/200000.tar --n_pose_kd 10000 --datadir_kd data/nerf_synthetic/lego:data/nerf_synthetic/lego_pseudo_images10k --experiment_name NeRF__blender_lego__create_pseudo
 ```
 
 If you are using the downloaded teachers, please use this snippet:
 ```bash
-CUDA_VISIBLE_DEVICES=0 python utils/create_data.py --create_data rand --config configs/lego.txt --teacher_ckpt NeRF_Blender_Models/lego.tar --n_pose_kd 10000 --datadir_kd data/nerf_synthetic/lego:data/nerf_synthetic/lego_pseudo_images10k --screen --cache_ignore data,__pycache__,torchsearchsorted,imgs --project NeRF__blender_lego__create_pseudo
+CUDA_VISIBLE_DEVICES=0 python utils/create_data.py --create_data rand --config configs/lego.txt --teacher_ckpt NeRF_Blender_Models/lego.tar --n_pose_kd 10000 --datadir_kd data/nerf_synthetic/lego:data/nerf_synthetic/lego_pseudo_images10k --experiment_name NeRF__blender_lego__create_pseudo
 ```
 
 The pseudo data will be saved in `data/nerf_synthetic/lego_pseudo_images10k`. Every 4096 rays are saved in one .npy file. For 10k images (400x400 resoltuion), there will be 309600 .npy files. On our RTX 2080Ti GPU, rendering 1 image with NeRF takes around 8.5s, so 10k images would take around 24hrs. **If you want to try our method quicker, you may download the lego data we synthesized** (500 images, 2.8GB) and go to Step 3:
@@ -94,12 +94,12 @@ The data will be extracted under `data/nerf_synthetic/lego_pseudo_images500`. Us
 #### Step 3.
 Train R2L model on the synthetic data:
 ```bash
-CUDA_VISIBLE_DEVICES=0 python main.py --model_name R2L --config configs/lego_noview.txt --n_sample_per_ray 16 --netwidth 256 --netdepth 88 --datadir_kd data/nerf_synthetic/lego_pseudo_images10k --n_pose_video 20,1,1 --N_iters 1200000 --N_rand 20 --data_mode rays --hard_ratio 0.2 --hard_mul 20 --use_residual --trial.ON --trial.body_arch resmlp --num_worker 8 --warmup_lr 0.0001,200 --cache_ignore data,__pycache__,torchsearchsorted,imgs --screen --project R2L__blender_lego
+CUDA_VISIBLE_DEVICES=0 python main.py --model_name R2L --config configs/lego_noview.txt --n_sample_per_ray 16 --netwidth 256 --netdepth 88 --datadir_kd data/nerf_synthetic/lego_pseudo_images10k --n_pose_video 20,1,1 --N_iters 1200000 --N_rand 20 --data_mode rays --hard_ratio 0.2 --hard_mul 20 --use_residual --trial.ON --trial.body_arch resmlp --num_worker 8 --warmup_lr 0.0001,200 --experiment_name R2L__blender_lego
 ```
 
 If you are using the downloaded `lego_pseudo_images500` data, please use this snippet:
 ```bash
-CUDA_VISIBLE_DEVICES=0 python main.py --model_name R2L --config configs/lego_noview.txt --n_sample_per_ray 16 --netwidth 256 --netdepth 88 --datadir_kd data/nerf_synthetic/lego_pseudo_images500 --n_pose_video 20,1,1 --N_iters 1200000 --N_rand 20 --data_mode rays --hard_ratio 0.2 --hard_mul 20 --use_residual --trial.ON --trial.body_arch resmlp --num_worker 8 --warmup_lr 0.0001,200 --cache_ignore data,__pycache__,torchsearchsorted,imgs --screen --project R2L__blender_lego
+CUDA_VISIBLE_DEVICES=0 python main.py --model_name R2L --config configs/lego_noview.txt --n_sample_per_ray 16 --netwidth 256 --netdepth 88 --datadir_kd data/nerf_synthetic/lego_pseudo_images500 --n_pose_video 20,1,1 --N_iters 1200000 --N_rand 20 --data_mode rays --hard_ratio 0.2 --hard_mul 20 --use_residual --trial.ON --trial.body_arch resmlp --num_worker 8 --warmup_lr 0.0001,200 --experiment_name R2L__blender_lego
 ```
 
 #### Step 4. 
@@ -120,7 +120,7 @@ The converted data will be saved in `data/nerf_llff_data/room_real_train`.
 #### Step 5. 
 Finetune the R2L model in Step 3 on the data in Step 4:
 ```bash
-CUDA_VISIBLE_DEVICES=0 python main.py --model_name R2L --config configs/lego_noview.txt --n_sample_per_ray 16 --netwidth 256 --netdepth 88 --datadir_kd data/nerf_synthetic/lego_real_train --n_pose_video 20,1,1 --N_iters 1600000 --N_rand 20 --data_mode rays --hard_ratio 0.2 --hard_mul 20 --use_residual --cache_ignore data,__pycache__,torchsearchsorted,imgs --screen --trial.ON --trial.body_arch resmlp --num_worker 8 --warmup_lr 0.0001,200 --save_intermediate_models --pretrained_ckpt Experiments/R2L__blender_lego_SERVER*/weights/ckpt_1200000.tar --resume --project R2L__blender_lego__ft
+CUDA_VISIBLE_DEVICES=0 python main.py --model_name R2L --config configs/lego_noview.txt --n_sample_per_ray 16 --netwidth 256 --netdepth 88 --datadir_kd data/nerf_synthetic/lego_real_train --n_pose_video 20,1,1 --N_iters 1600000 --N_rand 20 --data_mode rays --hard_ratio 0.2 --hard_mul 20 --use_residual --trial.ON --trial.body_arch resmlp --num_worker 8 --warmup_lr 0.0001,200 --save_intermediate_models --pretrained_ckpt Experiments/R2L__blender_lego_SERVER*/weights/ckpt_1200000.tar --resume --experiment_name R2L__blender_lego__ft
 ```
 Note, this step is pretty fast and prone to overfitting, so do not finetune it too much. We simply set the finetuning steps based on our validation.
 

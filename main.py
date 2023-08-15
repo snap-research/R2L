@@ -30,14 +30,11 @@ DEBUG = False
 # ---------------------------------
 # Set up logging directories
 logger = Logger(args)
-accprint = logger.log_printer.accprint
-netprint = logger.log_printer.netprint
 ExpID = logger.ExpID
 flip = FLIP()
 
 
 class MyDataParallel(torch.nn.DataParallel):
-
     def __getattr__(self, name):
         try:
             return super().__getattr__(name)
@@ -46,7 +43,7 @@ class MyDataParallel(torch.nn.DataParallel):
 
 
 # Update ssim and lpips metric functions
-ssim = lambda img, ref: ssim_(torch.unsqueeze(img, 0), torch.unsqueeze(ref, 0))
+ssim = lambda img, ref: ssim_(torch.unsqueeze(img, 0), torch.unsqueeze(ref, 0))  # Note this SSIM fn demands [N, C, H, W] data layout
 lpips = lpips_.LPIPS(net=args.lpips_net).to(device)
 # ---------------------------------
 
@@ -213,7 +210,7 @@ def render_path(render_poses,
         all_rays_d = loaded['all_rays_d'].to(device)  # [N, H*W, 3]
         if 'gt_imgs' in loaded:
             gt_imgs = loaded['gt_imgs'].to(device)  # [N, H, W, 3]
-        print(f'Use given render_path rays: "{args.given_render_path_rays}"')
+        logger.info(f'Use given render_path rays: "{args.given_render_path_rays}"')
 
         model = render_kwargs['network_fn']
         for i in range(len(all_rays_o)):
@@ -233,10 +230,10 @@ def render_path(render_poses,
                     rgb = model(model_input)
                 torch.cuda.synchronize()
                 t_forward = time.time()
-                print(
+                logger.info(
                     f'[#{i}] frame, prepare input (embedding): {t_input - t0:.4f}s'
                 )
-                print(
+                logger.info(
                     f'[#{i}] frame, model forward: {t_forward - t_input:.4f}s')
 
                 # reshape to image
@@ -254,7 +251,8 @@ def render_path(render_poses,
                 if gt_imgs is not None:
                     errors += [(rgb - gt_imgs[i][:H_, :W_, :]).abs()]
                     psnrs += [mse2psnr(img2mse(rgb, gt_imgs[i, :H_, :W_]))]
-                    ssims += [ssim(rgb, gt_imgs[i, :H_, :W_])]
+                    ssims += [ssim(rgb.permute(2, 0, 1), 
+                                   gt_imgs[i, :H_, :W_].permute(2, 0, 1))] # to [C, H, W] layout
 
                 if savedir is not None:
                     filename = os.path.join(savedir, '{:03d}.png'.format(i))
@@ -266,15 +264,15 @@ def render_path(render_poses,
                                         to8b(errors[-1]))
 
                 torch.cuda.synchronize()
-                print(
+                logger.info(
                     f'[#{i}] frame, rendering done, time for this frame: {time.time()-t0:.4f}s'
                 )
-                print('')
+                logger.info('')
     else:
         for i, c2w in enumerate(render_poses):
             torch.cuda.synchronize()
             t0 = time.time()
-            print(f'[#{i}] frame, rendering begins')
+            logger.info(f'[#{i}] frame, rendering begins')
             if args.model_name in ['nerf']:
                 rgb, disp, acc, _ = render(H,
                                            W,
@@ -311,10 +309,10 @@ def render_path(render_poses,
                         rgb = model(model_input)
                     torch.cuda.synchronize()
                     t_forward = time.time()
-                    print(
+                    logger.info(
                         f'[#{i}] frame, prepare input (embedding): {t_input - t0:.4f}s'
                     )
-                    print(
+                    logger.info(
                         f'[#{i}] frame, model forward: {t_forward - t_input:.4f}s'
                     )
 
@@ -333,7 +331,8 @@ def render_path(render_poses,
             if gt_imgs is not None:
                 errors += [(rgb - gt_imgs[i][:H_, :W_, :]).abs()]
                 psnrs += [mse2psnr(img2mse(rgb, gt_imgs[i, :H_, :W_]))]
-                ssims += [ssim(rgb, gt_imgs[i, :H_, :W_])]
+                ssims += [ssim(rgb.permute(2, 0, 1),
+                               gt_imgs[i, :H_, :W_].permute(2, 0, 1))] # to [C, H, W] layout
 
             if savedir is not None:
                 filename = os.path.join(savedir, '{:03d}.png'.format(i))
@@ -345,10 +344,10 @@ def render_path(render_poses,
                                     to8b(errors[-1]))
 
             torch.cuda.synchronize()
-            print(
+            logger.info(
                 f'[#{i}] frame, rendering done, time for this frame: {time.time()-t0:.4f}s'
             )
-            print('')
+            logger.info('')
 
     rgbs = torch.stack(rgbs, dim=0)
     disps = torch.stack(disps, dim=0)
@@ -477,7 +476,7 @@ def create_nerf(args, near, far):
             model_fine = MyDataParallel(model_fine)
         if hasattr(model.module, 'input_dim'):
             model.input_dim = model.module.input_dim
-        print(f'Using data parallel')
+        logger.info(f'Using data parallel')
 
     # load pretrained checkpoint
     if args.pretrained_ckpt:
@@ -492,7 +491,7 @@ def create_nerf(args, near, far):
             optimizer = torch.optim.Adam(params=grad_vars,
                                          lr=args.lrate,
                                          betas=(0.9, 0.999))
-            print(
+            logger.info(
                 f'Use model arch saved in checkpoint "{args.pretrained_ckpt}", and build a new optimizer.'
             )
 
@@ -500,14 +499,14 @@ def create_nerf(args, near, far):
         load_weights_v2(model, ckpt, 'network_fn_state_dict')
         if model_fine is not None:
             load_weights_v2(model_fine, ckpt, 'network_fine_state_dict')
-        print(f'Load pretrained ckpt successfully: "{args.pretrained_ckpt}".')
+        logger.info(f'Load pretrained ckpt successfully: "{args.pretrained_ckpt}".')
 
         if args.resume:
             history['start'] = ckpt['global_step']
             history['best_psnr'] = ckpt.get('best_psnr', 0)
             history['best_psnr_step'] = ckpt.get('best_psnr_step', 0)
             optimizer.load_state_dict(ckpt['optimizer_state_dict'])
-            print('Resume optimizer successfully.')
+            logger.info('Resume optimizer successfully.')
 
     # set up training args
     render_kwargs_train = {
@@ -524,7 +523,7 @@ def create_nerf(args, near, far):
 
     # NDC only good for LLFF-style forward facing data
     if args.dataset_type != 'llff' or args.no_ndc:
-        print('Not ndc!')
+        logger.info('Not ndc!')
         render_kwargs_train['ndc'] = False
         render_kwargs_train['lindisp'] = args.lindisp
 
@@ -537,7 +536,7 @@ def create_nerf(args, near, far):
     render_kwargs_test['raw_noise_std'] = 0.
 
     # get FLOPs and params
-    netprint(model)
+    logger.info(model, unprefix=True)
     n_params = get_n_params_(model)
     if args.model_name == 'nerf':
         dummy_input = torch.randn(1, input_ch + input_ch_views).to(device)
@@ -548,7 +547,7 @@ def create_nerf(args, near, far):
         dummy_input = torch.randn(1, model.input_dim).to(device)
         n_flops = get_n_flops_(model, input=dummy_input, count_adds=False)
 
-    print(
+    logger.info(
         f'Model complexity per pixel: FLOPs {n_flops/1e6:.10f}M, Params {n_params/1e6:.10f}M'
     )
     return render_kwargs_train, render_kwargs_test, history, grad_vars, optimizer
@@ -602,7 +601,7 @@ def raw2outputs(raw,
     if verbose and global_step % args.i_print == 0:
         for i_ray in range(0, alpha.shape[0], 100):
             logtmp = ['%.4f' % x for x in alpha[i_ray]]
-            netprint('%4d: ' % i_ray + ' '.join(logtmp))
+            logger.info('%4d: ' % i_ray + ' '.join(logtmp), unprefix=True)
 
     # weights = alpha * tf.math.cumprod(1.-alpha + 1e-10, -1, exclusive=True)
     weights = alpha * torch.cumprod(
@@ -752,7 +751,7 @@ def render_rays(ray_batch,
 
     for k in ret:
         if (torch.isnan(ret[k]).any() or torch.isinf(ret[k]).any()) and DEBUG:
-            print(f"! [Numerical Error] {k} contains nan or inf.")
+            logger.info(f"! [Numerical Error] {k} contains nan or inf.")
 
     return ret
 
@@ -881,7 +880,7 @@ def check_onnx(model, onnx_path, dummy_input):
                                ort_outs[0],
                                rtol=1e-03,
                                atol=1e-05)
-    print(
+    logger.info(
         "Exported model has been tested with ONNXRuntime, and the result looks good!"
     )
 
@@ -898,11 +897,11 @@ def train():
             n_pose_video=args.n_pose_video)
         hwf = poses[0, :3, -1]
         poses = poses[:, :3, :4]
-        print('Loaded llff', images.shape, render_poses.shape, hwf,
+        logger.info('Loaded llff', images.shape, render_poses.shape, hwf,
               args.datadir)
 
         if args.llffhold > 0:
-            print('Auto LLFF holdout,', args.llffhold)
+            logger.info('Auto LLFF holdout,', args.llffhold)
             i_test = np.arange(images.shape[0])[::args.llffhold]
 
         i_val = i_test
@@ -911,19 +910,19 @@ def train():
             if (i not in i_test and i not in i_val)
         ])
 
-        print('DEFINING BOUNDS')
+        logger.info('DEFINING BOUNDS')
         if args.no_ndc:
             near = np.ndarray.min(bds) * .9
             far = np.ndarray.max(bds) * 1.
         else:
             near = 0.
             far = 1.
-        print('NEAR FAR', near, far)
+        logger.info('NEAR FAR', near, far)
 
     elif args.dataset_type == 'blender':
         images, poses, render_poses, hwf, i_split = load_blender_data(
             args.datadir, args.half_res, args.testskip)
-        print('Loaded blender', images.shape, poses.shape, render_poses.shape,
+        logger.info('Loaded blender', images.shape, poses.shape, render_poses.shape,
               hwf, args.datadir)
         # Loaded blender (138, 400, 400, 4) (138, 4, 4) torch.Size([40, 4, 4]) [400, 400, 555.5555155968841] ./data/nerf_synthetic/lego
         i_train, i_val, i_test = i_split
@@ -942,7 +941,7 @@ def train():
         images, poses, render_poses, hwf, i_split = load_dv_data(
             scene=args.shape, basedir=args.datadir, testskip=args.testskip)
 
-        print('Loaded deepvoxels', images.shape, render_poses.shape, hwf,
+        logger.info('Loaded deepvoxels', images.shape, render_poses.shape, hwf,
               args.datadir)
         i_train, i_val, i_test = i_split
 
@@ -951,14 +950,14 @@ def train():
         far = hemi_R + 1.
 
     else:
-        print('Unknown dataset type', args.dataset_type, 'exiting')
+        logger.info('Unknown dataset type', args.dataset_type, 'exiting')
         return
 
     # @mst
     if hasattr(args, 'trial') and args.trial.near > 0:
         assert args.trial.far > args.trial.near
         near, far = args.trial.near, args.trial.far
-        print(f'Use provided near ({near}) and far {far}')
+        logger.info(f'Use provided near ({near}) and far {far}')
 
     # Create log dir and copy the config file
     f = f'{logger.log_path}/args.txt'
@@ -974,7 +973,7 @@ def train():
     # Create nerf model
     render_kwargs_train, render_kwargs_test, history, grad_vars, optimizer = create_nerf(
         args, near, far)
-    print(f'Created model {args.model_name}')
+    logger.info(f'Created model {args.model_name}')
     bds_dict = {
         'near': near,
         'far': far,
@@ -989,7 +988,7 @@ def train():
     H, W, focal = int(H), int(W), float(focal)
     if args.focal_scale > 0:
         focal *= args.focal_scale
-        print(f'!! Focal changed to {focal} (scaled by {args.focal_scale})')
+        logger.info(f'!! Focal changed to {focal} (scaled by {args.focal_scale})')
     hwf = [H, W, focal]
     k = math.sqrt(float(args.N_rand) / H / W)
     patch_h, patch_w = int(H * k), int(W * k)
@@ -1015,26 +1014,26 @@ def train():
     avg_test_pose = test_poses.mean(dim=0)
     avg_video_pose = video_poses.mean(dim=0)
     avg_train_pose = train_poses.mean(dim=0)
-    netprint(f'avg_test_pose:')
-    netprint(avg_test_pose)
-    netprint(f'avg_video_pose:')
-    netprint(avg_video_pose)
-    netprint(f'avg_train_pose:')
-    netprint(avg_train_pose)
+    logger.info(f'avg_test_pose:')
+    logger.info(avg_test_pose, unprefix=True)
+    logger.info(f'avg_video_pose:')
+    logger.info(avg_video_pose, unprefix=True)
+    logger.info(f'avg_train_pose:')
+    logger.info(avg_train_pose, unprefix=True)
 
     # data sketch
-    print(
+    logger.info(
         f'{len(i_train)} original train views are [{" ".join([str(x) for x in i_train])}]'
     )
-    print(
+    logger.info(
         f'{len(i_test)} test views are [{" ".join([str(x) for x in i_test])}]')
-    print(f'{len(i_val)} val views are [{" ".join([str(x) for x in i_val])}]')
-    print(
+    logger.info(f'{len(i_val)} val views are [{" ".join([str(x) for x in i_val])}]')
+    logger.info(
         f'train_images shape {train_images.shape} train_poses shape {train_poses.shape} test_poses shape {test_poses.shape}'
     )
 
     if args.test_pretrained:
-        print('Testing pretrained...')
+        logger.info('Testing pretrained...')
         with torch.no_grad():
             *_, misc = render_path(test_poses,
                                    hwf,
@@ -1042,13 +1041,13 @@ def train():
                                    render_kwargs_test,
                                    gt_imgs=test_images,
                                    render_factor=args.render_factor)
-        print(
+        logger.info(
             f"Pretrained test: TestLoss {misc['test_loss'].item():.4f} TestPSNR {misc['test_psnr'].item():.4f} TestPSNRv2 {misc['test_psnr_v2'].item():.4f}"
         )
 
     # @mst: use dataloader for training
     kd_poses = None
-    if args.datadir_kd:
+    if args.datadir_kd and not args.render_only:
         global datadir_kd
         datadir_kd = args.datadir_kd.split(
             ':')[1] if ':' in args.datadir_kd else args.datadir_kd
@@ -1057,19 +1056,19 @@ def train():
                                                       datadir_kd)
         else:
             raise NotImplementedError
-        print(f'Loaded data. Now total #train files: {n_total_img}')
+        logger.info(f'Loaded data. Now total #train files: {n_total_img}')
 
     # @mst: get video_targets
     video_targets = None
 
     # Short circuit if only rendering out from trained model
     if args.render_only:
-        print('RENDER ONLY')
+        logger.info('RENDER ONLY')
         expid, iter_ = parse_expid_iter(args.pretrained_ckpt)
         with torch.no_grad():
             t_ = time.time()
             if args.render_test:
-                print('Rendering test images...')
+                logger.info('Rendering test images...')
                 rgbs, *_, misc = render_path(test_poses,
                                              hwf,
                                              args.chunk,
@@ -1077,7 +1076,7 @@ def train():
                                              gt_imgs=test_images,
                                              savedir=logger.gen_img_path,
                                              render_factor=args.render_factor)
-                print(
+                logger.info(
                     f"[TEST] TestPSNR {misc['test_psnr'].item():.4f} TestPSNRv2 {misc['test_psnr_v2'].item():.4f} TestSSIM {misc['test_ssim'].item():.4f} TestLPIPS {misc['test_lpips'].item():.4f} TestFLIP {misc['test_flip'].item():.4f}"
                 )
             else:
@@ -1086,7 +1085,7 @@ def train():
                                                   n_pose=args.n_pose_video)
                 else:
                     video_poses = render_poses
-                print(f'Rendering video... (n_pose: {len(video_poses)})')
+                logger.info(f'Rendering video... (n_pose: {len(video_poses)})')
                 rgbs, *_, misc = render_path(video_poses,
                                              hwf,
                                              args.chunk,
@@ -1096,7 +1095,7 @@ def train():
             t = time.time() - t_
         video_path = f'{logger.gen_img_path}/video_{expid}_iter{iter_}_{args.video_tag}.mp4'
         imageio.mimwrite(video_path, to8b(rgbs), fps=30, quality=8)
-        print(f'Save video: "{video_path} (time: {t:.2f}s)')
+        logger.info(f'Save video: "{video_path} (time: {t:.2f}s)')
         if 'errors' in misc:
             imageio.mimwrite(video_path.replace('.mp4', '_error.mp4'),
                              to8b(misc['errors']),
@@ -1119,7 +1118,7 @@ def train():
 
         save_onnx(render_kwargs_test['network_fn'], onnx_path, dummy_input)
         check_onnx(render_kwargs_test['network_fn'], onnx_path, dummy_input)
-        print(f'Convert to onnx done. Saved at "{onnx_path}"')
+        logger.info(f'Convert to onnx done. Saved at "{onnx_path}"')
         exit(0)
 
     if args.benchmark:
@@ -1130,7 +1129,7 @@ def train():
                                     'model': render_kwargs_test['network_fn'],
                                     'pose': x
                                 })
-        print(timer.timeit(100))
+        logger.info(timer.timeit(100))
         exit(0)
 
     # Prepare raybatch tensor if batching random rays
@@ -1138,11 +1137,11 @@ def train():
     use_batching = not args.no_batching
     if use_batching:
         # For random ray batching
-        print('get rays')
+        logger.info('get rays')
         rays = np.stack(
             [get_rays_np(H, W, focal, p) for p in poses[:, :3, :4]],
             0)  # [N, ro+rd, H, W, 3]
-        print('done, concats')
+        logger.info('done, concats')
         if isinstance(images, torch.Tensor): images = images.cpu().data.numpy()
         rays_rgb = np.concatenate([rays, images[:, None]],
                                   1)  # [N, ro+rd+rgb, H, W, 3]
@@ -1153,9 +1152,9 @@ def train():
         rays_rgb = np.reshape(rays_rgb,
                               [-1, 3, 3])  # [(N-1)*H*W, ro+rd+rgb, 3]
         rays_rgb = rays_rgb.astype(np.float32)
-        print('shuffle rays')
+        logger.info('shuffle rays')
         np.random.shuffle(rays_rgb)
-        print('done')
+        logger.info('done')
         i_batch = 0
 
     # Move training data to GPU
@@ -1169,7 +1168,7 @@ def train():
     timer = Timer((args.N_iters - start) // args.i_testset)
     hist_psnr = hist_psnr1 = hist_psnr2 = n_pseudo_img = n_seen_img = hist_depthloss = 0
     global global_step
-    print('Begin training')
+    logger.info('Begin training')
     hard_pool_full = False
     batch_time = AverageMeter('Time', ':6.3f')
     data_time = AverageMeter('Data', ':6.3f')
@@ -1205,7 +1204,7 @@ def train():
 
             i_batch += N_rand
             if i_batch >= rays_rgb.shape[0]:
-                print("Shuffle data after an epoch!")
+                logger.info("Shuffle data after an epoch!")
                 rand_idx = torch.randperm(rays_rgb.shape[0])
                 rays_rgb = rays_rgb[rand_idx]
                 i_batch = 0
@@ -1225,7 +1224,7 @@ def train():
                                                   i)
                             trainloader, n_total_img = get_dataloader(
                                 args.dataset_type, datadir_kd, pseudo_ratio=pr)
-                            print(
+                            logger.info(
                                 f'Iter {i}. Reloaded data (time: {time.time()-t_:.2f}s). Now total #train files: {n_total_img}'
                             )
 
@@ -1258,7 +1257,7 @@ def train():
                             t_ = time.time()
                             trainloader, n_total_img = get_dataloader(
                                 args.dataset_type, datadir_kd)
-                            print(
+                            logger.info(
                                 f'Iter {i}. Reloaded data (time: {time.time()-t_:.2f}s). Now total #train files: {n_total_img}'
                             )
 
@@ -1278,7 +1277,7 @@ def train():
                                 torch.linspace(W // 2 - dW, W // 2 + dW - 1,
                                                2 * dW)), -1)
                         if i == start + 1:
-                            print(
+                            logger.info(
                                 f"[Config] Center cropping of size {2*dH} x {2*dW} is enabled until iter {args.precrop_iters}"
                             )
                     else:
@@ -1429,7 +1428,7 @@ def train():
         if i % args.i_print == 0:
             logstr = f"[TRAIN] Iter {i} data_time {data_time.val:.4f} ({data_time.avg:.4f}) batch_time {batch_time.val:.4f} ({batch_time.avg:.4f}) " + loss_line.format(
             )
-            print(logstr)
+            logger.info(logstr)
 
             # save image for check
             if rgb1 is not None and i % (100 * args.i_print) == 0:
@@ -1444,7 +1443,7 @@ def train():
             testsavedir = f'{logger.gen_img_path}/testset_{ExpID}_iter{i}'  # save the renderred test images
             os.makedirs(testsavedir, exist_ok=True)
             with torch.no_grad():
-                print(f'Iter {i} Testing...')
+                logger.info(f'Iter {i} Testing...')
                 t_ = time.time()
                 *_, misc = render_path(test_poses,
                                        hwf,
@@ -1461,20 +1460,20 @@ def train():
                 best_psnr_step = i
                 path = save_ckpt(f'ckpt_best.tar', render_kwargs_train,
                                  optimizer, best_psnr, best_psnr_step)
-                print(f'Iter {i} Save the best checkpoint: "{path}".')
+                logger.info(f'Iter {i} Save the best checkpoint: "{path}".')
 
-            accprint(
+            logger.info(
                 f"[TEST] Iter {i} TestPSNR {misc['test_psnr'].item():.4f} TestPSNRv2 {misc['test_psnr_v2'].item():.4f} \
 BestPSNRv2 {best_psnr:.4f} (Iter {best_psnr_step}) \
 TestSSIM {misc['test_ssim'].item():.4f} TestLPIPS {misc['test_lpips'].item():.4f} TestFLIP {misc['test_flip'].item():.4f} \
-TrainHistPSNR {hist_psnr:.4f} LR {new_lrate:.8f} Time {t_test:.1f}s")
-            print(f'Saved rendered test images: "{testsavedir}"')
-            print(f'Predicted finish time: {timer()}')
+TrainHistPSNR {hist_psnr:.4f} LR {new_lrate:.8f} Time {t_test:.1f}s", acc=True)
+            logger.info(f'Saved rendered test images: "{testsavedir}"')
+            logger.info(f'Predicted finish time: {timer()}')
 
         # test: using novel poses
         if i % args.i_video == 0:
             with torch.no_grad():
-                print(
+                logger.info(
                     f'Iter {i} Rendering video... (n_pose: {len(video_poses)})'
                 )
                 t_ = time.time()
@@ -1495,12 +1494,12 @@ TrainHistPSNR {hist_psnr:.4f} LR {new_lrate:.8f} Time {t_test:.1f}s")
                                  to8b(disps / np.max(disps)),
                                  fps=30,
                                  quality=8)
-            print(
+            logger.info(
                 f'[VIDEO] Rendering done. Time {t_video:.2f}s. Save video: "{video_path}"'
             )
 
             if video_targets is not None:  # given ground truth, psnr will be calculated, deprecated, will be removed
-                print(f"[VIDEO] video_psnr {misc['test_psnr'].item():.4f}")
+                logger.info(f"[VIDEO] video_psnr {misc['test_psnr'].item():.4f}")
                 imageio.mimwrite(video_path.replace('.mp4', '_error.mp4'),
                                  to8b(errors),
                                  fps=30,
@@ -1511,7 +1510,7 @@ TrainHistPSNR {hist_psnr:.4f} LR {new_lrate:.8f} Time {t_test:.1f}s")
             ckpt_name = f'ckpt_{i}.tar' if args.save_intermediate_models else 'ckpt.tar'
             path = save_ckpt(ckpt_name, render_kwargs_train, optimizer,
                              best_psnr, best_psnr_step)
-            print(f'Iter {i} Save checkpoint: "{path}".')
+            logger.info(f'Iter {i} Save checkpoint: "{path}".')
 
 
 def save_ckpt(file_name, render_kwargs_train, optimizer, best_psnr,
